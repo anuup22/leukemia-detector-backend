@@ -4,6 +4,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import tensorflow as tf
+from flask_cors import CORS  # Import CORS
 
 # Disable oneDNN custom operations and suppress TensorFlow logs
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -14,6 +15,9 @@ class_labels = ['EarlyPreB', 'PreB', 'ProB', 'Benign']
 
 # Define a Flask app
 app = Flask(__name__)
+
+# Enable CORS for all routes
+CORS(app)  # Add this line to enable CORS
 
 # Define model paths
 MODEL_PATHS = {
