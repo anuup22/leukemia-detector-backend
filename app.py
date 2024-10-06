@@ -39,21 +39,15 @@ def load_model(model_name):
 # Function to preprocess the image and predict the class using the TFLite model
 def model_predict(img_path, interpreter):
     try:
-        # Load the image with the target size
         img = tf.keras.preprocessing.image.load_img(img_path, target_size=(224, 224))
         x = tf.keras.preprocessing.image.img_to_array(img)
         x = np.expand_dims(x, axis=0)  # Add batch dimension
         x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
 
-        # Set the tensor to the input of the model
         interpreter.set_tensor(interpreter.get_input_details()[0]['index'], x)
-
-        # Run inference
         interpreter.invoke()
 
-        # Get the output tensor
         preds = interpreter.get_tensor(interpreter.get_output_details()[0]['index'])
-
         return preds
     except Exception as e:
         print(f"Error during prediction: {str(e)}")
@@ -62,10 +56,10 @@ def model_predict(img_path, interpreter):
 # API to get available models
 @app.route('/api/models', methods=['GET'])
 def get_models():
-    return jsonify(list(MODEL_PATHS.keys()))
+    return jsonify({"models": list(MODEL_PATHS.keys())}), 200
 
 # API to handle image uploads and predictions
-@app.route('/api/predict', methods=['POST'])
+@app.route('/api/predictions', methods=['POST'])
 def upload():
     if 'files' not in request.files:
         return jsonify({"error": "No file part."}), 400
@@ -105,7 +99,7 @@ def upload():
         # Delete the file after processing
         os.remove(file_path)
 
-    return jsonify(results)
+    return jsonify({"results": results}), 200
 
 # Run the Flask app
 if __name__ == '__main__':
