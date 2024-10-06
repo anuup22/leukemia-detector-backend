@@ -17,6 +17,7 @@ app = Flask(__name__)
 
 # Define model paths
 MODEL_PATHS = {
+    'EfficientB0': 'models/EfficientB0.tflite',
     'EfficientNetB0': 'models/EfficientNetB0.tflite',
     'MobileNetV2': 'models/MobileNetV2.tflite',
     'NasNetMobile': 'models/NasNetMobile.tflite'
@@ -66,39 +67,41 @@ def get_models():
 # API to handle image uploads and predictions
 @app.route('/api/predict', methods=['POST'])
 def upload():
-    if 'file' not in request.files:
+    if 'files' not in request.files:
         return jsonify({"error": "No file part."}), 400
 
-    f = request.files['file']
-    if f.filename == '':
-        return jsonify({"error": "No selected file."}), 400
+    files = request.files.getlist('files')  # Get multiple files
+    if len(files) == 0 or all(f.filename == '' for f in files):
+        return jsonify({"error": "At least one image file is required."}), 400
 
     selected_model = request.form.get('model')
     if selected_model not in MODEL_PATHS:
         return jsonify({"error": "Invalid model selected."}), 400
 
-    # Save the file to the uploads directory
-    file_path = os.path.join(UPLOAD_FOLDER, secure_filename(f.filename))
-    f.save(file_path)
+    results = []
+    interpreter = load_model(selected_model)  # Load the model once
 
-    # Load the model and make a prediction using the uploaded image
-    try:
-        interpreter = load_model(selected_model)
+    for f in files[:6]:  # Limit to a maximum of 6 images
+        if f.filename == '':
+            continue  # Skip empty files
+
+        # Save the file to the uploads directory
+        file_path = os.path.join(UPLOAD_FOLDER, secure_filename(f.filename))
+        f.save(file_path)
+
+        # Make a prediction using the uploaded image
         preds = model_predict(file_path, interpreter)
 
         if preds is None:
-            return jsonify({"error": "Prediction failed."}), 500
+            results.append({"filename": f.filename, "error": "Prediction failed."})
+            continue
 
         # Get the index of the class with the highest probability
         pred_class_idx = np.argmax(preds, axis=1)[0]
-
-        # Return the predicted class as the result
         result = class_labels[pred_class_idx] if pred_class_idx < len(class_labels) else "Prediction index out of range."
-        return jsonify({"predicted_class": result})
+        results.append({"filename": f.filename, "predicted_class": result})
 
-    except Exception as e:
-        print(f"Error during upload or prediction: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    return jsonify(results)
 
 # Run the Flask app
 if __name__ == '__main__':
