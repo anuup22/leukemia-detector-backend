@@ -94,12 +94,16 @@ def upload():
 
         if preds is None:
             results.append({"filename": f.filename, "error": "Prediction failed."})
+            os.remove(file_path)  # Delete the file even if prediction failed
             continue
 
         # Get the index of the class with the highest probability
         pred_class_idx = np.argmax(preds, axis=1)[0]
         result = class_labels[pred_class_idx] if pred_class_idx < len(class_labels) else "Prediction index out of range."
         results.append({"filename": f.filename, "predicted_class": result})
+
+        # Delete the file after processing
+        os.remove(file_path)
 
     return jsonify(results)
 
