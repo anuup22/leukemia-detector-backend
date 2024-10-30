@@ -4,7 +4,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import tensorflow as tf
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS
 
 # Disable oneDNN custom operations and suppress TensorFlow logs
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -17,7 +17,7 @@ class_labels = ['EarlyPreB', 'PreB', 'ProB', 'Benign']
 app = Flask(__name__)
 
 # Enable CORS for all routes
-CORS(app)  # Add this line to enable CORS
+CORS(app)
 
 # Define model paths
 MODEL_PATHS = {
@@ -45,7 +45,7 @@ def model_predict(img_path, interpreter):
     try:
         img = tf.keras.preprocessing.image.load_img(img_path, target_size=(224, 224))
         x = tf.keras.preprocessing.image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)  # Add batch dimension
+        x = np.expand_dims(x, axis=0)
         x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
 
         interpreter.set_tensor(interpreter.get_input_details()[0]['index'], x)
@@ -68,7 +68,7 @@ def upload():
     if 'files' not in request.files:
         return jsonify({"error": "No file part."}), 400
 
-    files = request.files.getlist('files')  # Get multiple files
+    files = request.files.getlist('files')
     if len(files) == 0 or all(f.filename == '' for f in files):
         return jsonify({"error": "At least one image file is required."}), 400
 
@@ -77,30 +77,31 @@ def upload():
         return jsonify({"error": "Invalid model selected."}), 400
 
     results = []
-    interpreter = load_model(selected_model)  # Load the model once
+    interpreter = load_model(selected_model)
 
-    for f in files[:6]:  # Limit to a maximum of 6 images
+    for f in files[:6]:
         if f.filename == '':
-            continue  # Skip empty files
+            continue
 
-        # Save the file to the uploads directory
         file_path = os.path.join(UPLOAD_FOLDER, secure_filename(f.filename))
         f.save(file_path)
 
-        # Make a prediction using the uploaded image
         preds = model_predict(file_path, interpreter)
 
         if preds is None:
-            results.append({"filename": f.filename, "error": "Prediction failed."})
-            os.remove(file_path)  # Delete the file even if prediction failed
+            results.append({"diagnosis": "Prediction failed", "confidence": 0})
+            os.remove(file_path)
             continue
 
-        # Get the index of the class with the highest probability
         pred_class_idx = np.argmax(preds, axis=1)[0]
-        result = class_labels[pred_class_idx] if pred_class_idx < len(class_labels) else "Prediction index out of range."
-        results.append({"filename": f.filename, "predicted_class": result})
+        confidence_score = float(np.max(preds)) * 100  # Confidence as a percentage
+        diagnosis = class_labels[pred_class_idx] if pred_class_idx < len(class_labels) else "Unknown"
 
-        # Delete the file after processing
+        results.append({
+            "diagnosis": diagnosis,
+            "confidence": round(confidence_score, 2)
+        })
+
         os.remove(file_path)
 
     return jsonify({"results": results}), 200
