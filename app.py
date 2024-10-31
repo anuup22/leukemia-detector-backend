@@ -65,11 +65,11 @@ def get_models():
 # API to handle image uploads and predictions
 @app.route('/api/predictions', methods=['POST'])
 def upload():
-    if 'files' not in request.files:
+    if 'images' not in request.files:
         return jsonify({"error": "No file part."}), 400
 
-    files = request.files.getlist('files')
-    if len(files) == 0 or all(f.filename == '' for f in files):
+    images = request.files.getlist('images')
+    if len(images) == 0 or all(img.filename == '' for img in images):
         return jsonify({"error": "At least one image file is required."}), 400
 
     selected_model = request.form.get('model')
@@ -79,12 +79,12 @@ def upload():
     results = []
     interpreter = load_model(selected_model)
 
-    for f in files[:6]:
-        if f.filename == '':
+    for img in images[:6]:
+        if img.filename == '':
             continue
 
-        file_path = os.path.join(UPLOAD_FOLDER, secure_filename(f.filename))
-        f.save(file_path)
+        file_path = os.path.join(UPLOAD_FOLDER, secure_filename(img.filename))
+        img.save(file_path)
 
         preds = model_predict(file_path, interpreter)
 
